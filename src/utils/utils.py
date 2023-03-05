@@ -33,7 +33,7 @@ def dms2dec(d, m, s):
     return (abs(d) + m / 60 + s / (60**2)) * (d / abs(d))
 
 
-def angular_dist(r1, d1, r2, d2, radians=False):
+def angular_dist(r1, d1, r2, d2, radians=False, small=False):
     """
     Computes the angular distance from right ascension
     and declination using the Haversine formula.
@@ -55,6 +55,12 @@ def angular_dist(r1, d1, r2, d2, radians=False):
         a = np.sin(np.abs(d1 - d2) / 2) ** 2
         b = np.cos(d1) * np.cos(d2) * np.sin(np.abs(r1 - r2) / 2) ** 2
         angle = 2 * np.arcsin(np.sqrt(a + b))
+        return np.degrees(angle)
+
+    if small:
+        a = (np.abs(d1 - d2)) ** 2
+        b = (np.abs(r1 - r2)) ** 2
+        angle = np.sqrt(a + b)
         return np.degrees(angle)
 
     a = np.sin(np.abs(np.radians(d1) - np.radians(d2)) / 2) ** 2

@@ -44,11 +44,11 @@ if __name__ == "__main__":
         print("[ERR] Cannot find catalogue directories.")
         sys.exit()
 
-    print("[INFO] Loaded catalogue data")
-    print("[INFO] Start cross matching")
-
     bss_cat = utils.import_dat(args.get("bss_path"))
     super_cat = utils.import_csv(args.get("super_path"))
+
+    print("[INFO] Loaded catalogue data")
+    print("[INFO] Start cross matching")
 
     naive_start_time = time.perf_counter()
     matches, no_matches = cross_matcher.naive_crossmatch(

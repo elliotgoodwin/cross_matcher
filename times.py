@@ -62,7 +62,7 @@ if __name__ == "__main__":
     print("[INFO] Plotting results")
 
     # Plot the results
-    fig, ax = plt.subplots(1, 1, figsize=(5, 3))
+    fig, ax = plt.subplots(1, 1, figsize=(8, 5))
     labels = naive_cross_matcher_times.keys()
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels)
