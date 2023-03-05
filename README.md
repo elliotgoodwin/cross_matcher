@@ -102,9 +102,11 @@ If you're less interested in these details, feel free to skip ahead and take the
 
 ---
 
-Cartesian coordinates are not used here. This is because we want to match objects in the (3D) sky from their projection on a 2D plane (a telescope image). Therefore, we'll be considering the angular separation instead. Note that more sophisticated methods of crossmatching could certainly use other data such as distance, redshifts, magnitude etc.
+Cartesian coordinates are not used here. This is because we want to match objects in the (3D) sky from their projection on a 2D plane (a telescope image). Therefore, we'll be considering the angular separation instead. Note that more sophisticated methods of crossmatching could certainly use other data such as distance in the dimension perpendicular to our image plane, redshifts, magnitude etc.
 
 Angular separation is usually defined in terms of [Right ascension](https://en.wikipedia.org/wiki/Right_ascension) and [Declination](https://en.wikipedia.org/wiki/Declination) which are effectively a cosmic longitude/latitude. Right ascension and declination can be defined in terms of degrees/radians or, often the case in astronomical data, in terms the [Hour angle](https://en.wikipedia.org/wiki/Hour_angle) and [Minutes and second of arc](https://en.wikipedia.org/wiki/Minute_and_second_of_arc).
+
+Right ascension and declination (in radians) can be used to calculate the angular separation radians between two points using the [Haversine formula](https://en.wikipedia.org/wiki/Haversine_formula).
 
 ### What is a cat and why is it super?
 
@@ -163,7 +165,7 @@ d = 2 \bigg( \sqrt{ \big( \frac{\phi_2 - \phi_1}{2} \big)^2 + \big( \frac{\lambd
 = \sqrt{ \big( \phi_2 - \phi_1 \big)^2 + \big( \lambda_2 - \lambda_1 \big)^2  }  \\
 $$
 
-As far as I can tell, there is no option to use a custom metric (i.e. the metric for a curved space rather than a flat, Euclidean space) to Scipy's `KDTree` class. However, as long as we can validate that the small angle approximation holds true (typically in the regime where the angle $\theta \lesssim 10^\circ \approx 0.65 \mathrm{rad}$), then we can expect to use Scipy's implementation of `KDTree` without any issues. The physical interpretation of this is that angular separation is small enough that the fact that the curvature of the spherical space doesn't have much of an impact, meaning we can treat the right ascension and declination in degrees effectively as $(x, y)$ coordinates on a plane.
+As far as I can tell, there is no option to use a custom metric (i.e. the metric for a curved space rather than a flat, Euclidean space) to Scipy's `KDTree` class. However, as long as we can validate that the small angle approximation holds true (typically in the regime where the angle $\theta \lesssim 10^\circ \approx 0.65 \mathrm{rad}$), then we can expect to use Scipy's implementation of `KDTree` without any issues. The physical interpretation of this is that angular separation is small enough that arclength of the angular separation and the straight-line distance between the two points is similar, meaning we can treat the right ascension and declination in degrees effectively as $(x, y)$ coordinates on a plane.
 
 This assumption is tested in `small_angle.py`:
 
@@ -191,6 +193,13 @@ A sample of the difference between a small number of points in the `BSS` catalog
 We see that, in general, the agreement between the true angular separation and seems pretty good. However, it's important to note that:
 
 1. The output of the `small_angles.py` script (above) shows that there are are some points where the (rounded) difference between the true distance computed with the Haversine formula and the approximate distance computed with the Euclidean distance formula is non-zero.
-2. This hasn't been explicitly confirmed by computing the distance between all the objects in the `BSS` and `SUPERCosmos` catalogues and, as
+2. This hasn't been explicitly confirmed by computing the distance between all the objects in the `BSS` and `SUPERCosmos` catalogues. As the `BSS` catalogue was a smaller survey, we might expect this to be local to a small neighbourhood. There's no guarantee that the `SUPERCosmos` catalogue (an all-sky survey) would be in the same neighbourhood.
 
-In summary, it seems that we're 'lucky' that this method worked so well out of the box with our dataset and this result shouldn't be assumed to hold for all datasets. To improve the algorithm and make sure it generalises to different data, we could either query the `KDTree` with the distance relevant to our scenario (i.e. swap out the Euclidean distance for the Haversine formula) or attempt to keep track of where the small angle approximation holds and fall-back to the naive implementation to cross-verify our result.
+In summary, it seems that we might be 'lucky' that this method worked so well out of the box with our dataset and this result shouldn't be assumed to hold for all datasets. However, it should be acknowledged that we are intentionally searching for nearest neighbours less than `max_dist` away from our object. If `max_dist` is small enough then we *guarantee* that we are only looking for nearest neighbours the regime where the small angle approximation holds.
+
+To improve the algorithm and make sure it generalises to different data and different values of `max_dist`, we could either:
+
+1. Query the `KDTree` with the distance calculation relevant to our scenario (i.e. swap out the Euclidean distance for the Haversine formula)
+2. Determine the maximum value of `max_dist` where the small angle approximation holds.
+    * If the input value for `max_dist` is above this value AND a nearest neighbour is matched to the object with an angular separation outside of the small angle approximation...
+    * Then cross-verify the result by computing the true angular separation between the objects with the Haversine formula.
