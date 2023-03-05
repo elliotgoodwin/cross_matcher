@@ -23,8 +23,8 @@ def KD_crossmatch(bss_cat, super_cat, max_dist):
                           super_tree to find matches, returning a list of
                           indexes of the matched objects in super_cat
     """
-    bss_tree = KDTree(bss_cat, balanced_tree=False)
-    super_tree = KDTree(super_cat, balanced_tree=False)
+    bss_tree = KDTree(bss_cat)
+    super_tree = KDTree(super_cat)
     return bss_tree.query_ball_tree(super_tree, r=max_dist)
 
 
