@@ -132,3 +132,65 @@ A cat is a catalogue of objects recorded in an astronomical survey.
 The full `SUPERCosmos` catalogue contains over 126 million objects versus the 500 used here. Therefore, increasing the time taken to loop over each of the 160 `BSS` objects by 1 microsecond results in an overall execution time increase of `~126*10^6 * 160 * 1*10^-6 = 18,900` seconds, or about 5.25 hours. Clearly, this is a highly combinatorial problem where scalability is essential. In this repository, we'll look at a naive implementation, an attempt improve the algorithm by using more efficient data structures/computational techniques and finally, by improving the underlying algorithm.
 
 The improved algorithm constructs a [k-d tree](https://en.wikipedia.org/wiki/K-d_tree) from both sets of catalogue data before querying the k-d trees to find the nearest neighbours. 
+
+## Small angle approximation
+
+One difference between the naive and `KDTree` algorithm is that the naive algorithm finds the nearest neighbour based on the great circle distance. In contrast, Scipy's `KDTree` class computes the genralised normalisation (length) of the distance between the N-dimensional coordinate vectors of two objects in an $L^p$ space, defined as
+
+$$
+|| x ||_p = \big(x_1^2 + x_2^2 + ... + x_N^2 \big) ^{\frac{1}{p}}
+$$
+
+By default (and in our implementation) the `KDTree` sets $p=2$. Consequently, the nearest neighbours for objects in the `KDTree` are found by computing the Euclidean distance between the objects.
+
+The Haversine formula calculates the distance between the two points along a great circle of the sphere. It is given by
+
+$$
+d = 2 \mathrm{acrsin} \bigg( \sqrt{ \mathrm{sin}^2\frac{\phi_2 - \phi_1}{2} + \mathrm{cos}(\phi_1) \cdot \mathrm{cos}{\phi_2} \cdot \mathrm{sin}^2 \frac{\lambda_2 - \lambda_1}{2} } \bigg)
+$$
+
+where $\lambda$ is the delination and $\lambda$ is the right ascension, both in radians. For small angles, the following approximations hold true
+
+$$
+\mathrm{sin}(x) \approx x \\
+\mathrm{cos}(x) \approx 1
+$$
+
+Applying the small angle approximation to the Haversine formula results in the usual Euclidean distance
+
+$$
+d = 2 \bigg( \sqrt{ \big( \frac{\phi_2 - \phi_1}{2} \big)^2 + \big( \frac{\lambda_2 - \lambda_1}{2} \big)^2  } \bigg) \\
+= \sqrt{ \big( \phi_2 - \phi_1 \big)^2 + \big( \lambda_2 - \lambda_1 \big)^2  }  \\
+$$
+
+As far as I can tell, there is no option to use a custom metric (i.e. the metric for a curved space rather than a flat, Euclidean space) to Scipy's `KDTree` class. However, as long as we can validate that the small angle approximation holds true (typically in the regime where the angle $\theta \lesssim 10^\circ \approx 0.65 \mathrm{rad}$), then we can expect to use Scipy's implementation of `KDTree` without any issues. The physical interpretation of this is that angular separation is small enough that the fact that the curvature of the spherical space doesn't have much of an impact, meaning we can treat the right ascension and declination in degrees effectively as $(x, y)$ coordinates on a plane.
+
+This assumption is tested in `small_angle.py`:
+
+```bash
+$ python small_angle.py
+[INFO] Script started successfully
+[INFO] Loaded catalogue data
+[INFO] Summary of difference in distance between true value and small angle approx:
+
+        idx      angular sep.            small angle             euclidean dist.         diff
+        36       1.4127527387050025      1.9467886519998914      1.9467886519998914      -0.5340359132948889
+        76       3.4911550455848004      3.9971829368629574      3.9971829368629574      -0.5060278912781571
+        149      1.69344288245694        2.858837918324249       2.858837918324249       -1.1653950358673089
+
+[INFO] Mean diff -0.044774329940070606
+[INFO] Plotting comparison...
+[INFO] Saving figure to ./figs/small_angle_approx.png
+[INFO] Done
+```
+
+A sample of the difference between a small number of points in the `BSS` catalogue is shown in the figure below.
+
+![](./figs/small_angle_approx.png)
+
+We see that, in general, the agreement between the true angular separation and seems pretty good. However, it's important to note that:
+
+1. The output of the `small_angles.py` script (above) shows that there are are some points where the (rounded) difference between the true distance computed with the Haversine formula and the approximate distance computed with the Euclidean distance formula is non-zero.
+2. This hasn't been explicitly confirmed by computing the distance between all the objects in the `BSS` and `SUPERCosmos` catalogues and, as
+
+In summary, it seems that we're 'lucky' that this method worked so well out of the box with our dataset and this result shouldn't be assumed to hold for all datasets. To improve the algorithm and make sure it generalises to different data, we could either query the `KDTree` with the distance relevant to our scenario (i.e. swap out the Euclidean distance for the Haversine formula) or attempt to keep track of where the small angle approximation holds and fall-back to the naive implementation to cross-verify our result.
